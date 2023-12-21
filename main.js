@@ -7,7 +7,7 @@ var orthophoto = L.tileLayer.wms(
     maxZoom: 23,
   }
 );
-var imoti = L.tileLayer.wms(
+var cadastreParcels = L.tileLayer.wms(
   "https://inspire.cadastre.bg/arcgis/services/Cadastral_Parcel/MapServer/WMSServer",
   {
     layers: "0",
@@ -17,14 +17,26 @@ var imoti = L.tileLayer.wms(
   }
 );
 
+var cadastreBuildings = L.tileLayer.wms(
+  "https://inspire.cadastre.bg/arcgis/rest/services/Building/MapServer",
+  {
+    layers: "0",
+    maxZoom: 23,
+    format: "image/png",
+    transparent: true,
+  }
+);
+
+var cadastreLayers = L.layerGroup([cadastreParcels, cadastreBuildings]);
+
 var baseMap = {
   OSM: osmMap,
   "World Imagery": imageryMap,
   "Aerial View": orthophoto,
 };
 
-var overlayMap = {
-  imoti: imoti,
+var overlayMaps = {
+  Cadastre: cadastreLayers,
 };
 
 var map = L.map("map", {
@@ -40,17 +52,43 @@ var ctlMeasure = L.control
   })
   .addTo(map);
 
-$.getJSON("resources/data/municipalities_names.geojson", function (data) {
-  var municipalitiesLayer = L.geoJSON(data, {
-    style: function (feature) {
-      return { color: "black", fillColor: "red" };
-    },
-  })
-    .bindPopup(function (layer) {
-      return "<h3> Община: </h3>" + layer.feature.properties.name;
-    })
-    .addTo(map);
+function highlightFeature(e) {
+  var layer = e.target;
+  layer.setStyle({
+    weight: 5,
+    color: "#666",
+    dashArray: "",
+    fillOpacity: 0.7,
+  });
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+    layer.bringToFront();
+  }
+  info.update(layer.feature.properties);
+}
 
-  layerGroup.addOverlay(municipalitiesLayer, "Municipalities");
-});
-var layerGroup = L.control.layers(baseMap, overlayMap).addTo(map);
+var municipalityLayer;
+
+function resetHighlight(e) {
+  municipalityLayer.resetStyle(e.target);
+  info.update();
+}
+function zoomToFeature(e) {
+  map.fitBounds(e.target.getBounds());
+}
+
+function onEachFeature(feature, layer) {
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: resetHighlight,
+    click: zoomToFeature,
+  });
+}
+
+var municipalityLayer = L.geoJSON(geojsonFeature, {
+  onEachFeature: onEachFeature,
+}).addTo(map);
+
+municipalityLayer.remove();
+
+var layerGroup = L.control.layers(baseMap, overlayMaps).addTo(map);
+layerGroup.addOverlay(municipalityLayer, "Municipalities");
