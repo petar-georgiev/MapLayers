@@ -52,6 +52,25 @@ var ctlMeasure = L.control
   })
   .addTo(map);
 
+var info = L.control();
+
+info.onAdd = function (map) {
+  this._div = L.DomUtil.create("div", "info");
+  this.update();
+  return this._div;
+};
+
+info.update = function (props) {
+  if (props && props.name) {
+    this._div.innerHTML = "<h2>Община: </h2>" + props.name;
+    console.log(props.name);
+  } else {
+    this._div.innerHTML = ""; // or any default value
+  }
+};
+
+info.addTo(map);
+
 function highlightFeature(e) {
   var layer = e.target;
   layer.setStyle({
@@ -63,7 +82,9 @@ function highlightFeature(e) {
   if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
     layer.bringToFront();
   }
-  info.update(layer.feature.properties);
+  var properties = e.target.feature.properties;
+  console.log(properties);
+  info.update(properties);
 }
 
 var municipalityLayer;
@@ -88,7 +109,7 @@ var municipalityLayer = L.geoJSON(geojsonFeature, {
   onEachFeature: onEachFeature,
 }).addTo(map);
 
-municipalityLayer.remove();
+// municipalityLayer.remove();
 
 var layerGroup = L.control.layers(baseMap, overlayMaps).addTo(map);
 layerGroup.addOverlay(municipalityLayer, "Municipalities");
