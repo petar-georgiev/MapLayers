@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "leaflet-providers": "^2.0.0"
+    "leaflet-providers": "^2.0.0",
+    "leaflet-search": "^4.0.0"
   }
 }

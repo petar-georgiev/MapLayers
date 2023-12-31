@@ -11,9 +11,13 @@ var cadastreParcels = L.tileLayer.wms(
   "https://inspire.cadastre.bg/arcgis/services/Cadastral_Parcel/MapServer/WMSServer",
   {
     layers: "0",
-    maxZoom: 23,
+    styles: "",
     format: "image/png",
     transparent: true,
+    version: "1.3.0",
+    uppercase: true,
+    maxZoom: 23,
+    tileSize: 640,
   }
 );
 
@@ -21,13 +25,32 @@ var cadastreBuildings = L.tileLayer.wms(
   "https://inspire.cadastre.bg/arcgis/rest/services/Building/MapServer",
   {
     layers: "0",
-    maxZoom: 23,
+    styles: "",
     format: "image/png",
     transparent: true,
+    version: "1.3.0",
+    uppercase: true,
+    maxZoom: 23,
+    tileSize: 640,
+    attribution: '<a href="https://inspire.egov.bg/">inspire.egov.bg</a>',
   }
 );
 
-var cadastreLayers = L.layerGroup([cadastreParcels, cadastreBuildings]);
+var map = L.map("map", {
+  center: [42.137813164634395, 24.75264725348793],
+  zoom: 13,
+  zoomControl: false,
+  attributionControl: false,
+  layers: [osmMap],
+});
+
+var municipalityLayer = L.geoJSON(geojsonFeature, {
+  onEachFeature: onEachFeature,
+}).addTo(map);
+
+municipalityLayer.remove();
+
+var cadastreLayers = L.layerGroup([cadastreBuildings, cadastreParcels]);
 
 var baseMap = {
   OSM: osmMap,
@@ -37,18 +60,51 @@ var baseMap = {
 
 var overlayMaps = {
   Cadastre: cadastreLayers,
+  Manicipalities: municipalityLayer,
 };
 
-var map = L.map("map", {
-  center: [42.137813164634395, 24.75264725348793],
-  zoom: 13,
-  layers: [osmMap],
+var layerGroup = L.control.layers(baseMap, overlayMaps).addTo(map);
+
+var attributionControl;
+var searchControl;
+
+map.on("overlayadd", function (eventLayer) {
+  if (eventLayer.name === "Manicipalities") {
+    searchControl = new L.Control.Search({
+      textPlaceholder: "Търси община...",
+      layer: municipalityLayer,
+      propertyName: "name",
+    });
+
+    map.addControl(searchControl);
+  }
+
+  if (eventLayer.name === "Cadastre") {
+    if (window.AndroidGSM) {
+      attributionControl = L.control
+        .attribution({ prefix: '<a href="#">inspire.egov.bg</a>' })
+        .addTo(map);
+    } else {
+      attributionControl = L.control
+        .attribution({
+          prefix: '<a href="https://inspire.egov.bg/">inspire.egov.bg</a>',
+        })
+        .addTo(map);
+    }
+  }
+});
+map.on("overlayremove", function (eventLayer) {
+  if (eventLayer.name === "Manicipalities") {
+    map.removeControl(searchControl);
+  }
+  if (eventLayer.name === "Cadastre") {
+    map.removeControl(attributionControl);
+  }
 });
 
-var ctlMeasure = L.control
-  .polylineMeasure({
-    position: "topleft",
-    measureControlTitle: "Measure Length",
+L.control
+  .zoom({
+    position: "bottomright",
   })
   .addTo(map);
 
@@ -87,8 +143,6 @@ function highlightFeature(e) {
   info.update(properties);
 }
 
-var municipalityLayer;
-
 function resetHighlight(e) {
   municipalityLayer.resetStyle(e.target);
   info.update();
@@ -105,11 +159,14 @@ function onEachFeature(feature, layer) {
   });
 }
 
-var municipalityLayer = L.geoJSON(geojsonFeature, {
-  onEachFeature: onEachFeature,
-}).addTo(map);
-
-// municipalityLayer.remove();
-
-var layerGroup = L.control.layers(baseMap, overlayMaps).addTo(map);
-layerGroup.addOverlay(municipalityLayer, "Municipalities");
+let loadingLayers = 0;
+function changeLoadingLayers(by) {
+  loadingLayers += by;
+  if (loadingLayers <= 0) {
+    loadingLayers = 0;
+    document.querySelector("#loadingInfo").innerHTML = "";
+  } else
+    document.querySelector("#loadingInfo").innerHTML =
+      "Зареждащи се слоеве: " + loadingLayers;
+}
+changeLoadingLayers(0);
